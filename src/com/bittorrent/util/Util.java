@@ -15,14 +15,16 @@ public class Util {
 	private final static int chunkSize = 100 * 1024;
 	
 	// Given file and destination where splits should go, splits file into 10KB chunks
-	public static void splitFile(File file, String rootDir){
+	public static int splitFile(File file, String rootDir){
+		ArrayList<FileChunk> chunks = new ArrayList<FileChunk>();
 		try {
-			ArrayList<FileChunk> chunks = getFileChunks(new RandomAccessFile(file, "r"),file.getName());
+			chunks = getFileChunks(new RandomAccessFile(file, "r"),file.getName());
 			writeFileChunksToFiles(rootDir, chunks);
 		} 
 		catch (IOException | ChordException e) {
 			e.printStackTrace();
 		}
+		return chunks.size();
 	}
 	
 	// Returns arraylist of FileChunk objects of the file provided
