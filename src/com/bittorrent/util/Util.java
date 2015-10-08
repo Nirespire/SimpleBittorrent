@@ -66,6 +66,22 @@ public class Util {
 			bos.close();
 			fos.close();
 		}
+	}
+	
+	public static void writeFileChunksToFiles(String rootDir, FileChunk[] chunks) throws IOException{
+		for(FileChunk chunk : chunks){
+			if(chunk == null){
+				continue;
+			}
+			FileOutputStream fos = new FileOutputStream(rootDir + "\\" + chunk.getChunkFilename());
+			BufferedOutputStream bos = new BufferedOutputStream(fos);
+			ObjectOutputStream oos = new ObjectOutputStream(bos);
+			oos.writeObject(chunk);
+			
+			oos.close();
+			bos.close();
+			fos.close();
+		}
 	} 
 	
 	// Provided an ArrayList of FileChunk objects, reconstructs the original file.
@@ -99,5 +115,16 @@ public class Util {
 		
 		return f;
 	}
+	
+	public static void pressAnyKeyToContinue()
+	 { 
+	        System.out.println("Press any key to continue...");
+	        try
+	        {
+	            System.in.read();
+	        }  
+	        catch(Exception e)
+	        {}  
+	 }
 
 }

@@ -16,6 +16,14 @@ public class Server {
 	
 	private static HashMap<File,Boolean> sentFiles = new HashMap<File,Boolean>();
 	private static int numChunks = -1;
+	
+	private static final int numPeers = 5;
+	
+	private static int numChunksSent = 0;
+	
+	static synchronized int incNumChunksSent(){
+		return numChunksSent++;
+	}
 
 	public static void main(String[] args) throws Exception {
 		System.out.println("The FileOwner is running.");
@@ -45,10 +53,6 @@ public class Server {
 		System.out.println("Split file into " + numChunks  + " parts");
 		System.out.println("Writing files into: " + ROOT_SPLIT_DIR);
 		
-		// TODO check use of hashmap here
-		for(File f : new File("img\\splits").listFiles()){
-			sentFiles.put(f, false);
-		}
 
 		// Once file is split, start listening for peers
 		ServerSocket listener = new ServerSocket(S_PORT);
@@ -58,7 +62,7 @@ public class Server {
 		try {
 			while (true) {
 				// When a client connects, spawn a FileDistributer thread to handle
-				new FileDistributer(listener.accept(), clientNum, numChunks).start();
+				new FileDistributer(listener.accept(), clientNum, numChunks, numPeers).start();
 				System.out.println("Client " + clientNum + " is connected!");
 				clientNum++;
 			}

@@ -14,11 +14,14 @@ public class FileDistributer extends Thread {
 	private ObjectOutputStream out; // stream write to the socket
 	private int clientNum; // The index number of the client (start with 0)
 	private int numChunks; // The number of chunks the file was split into
+	private int numPeers;
+	
 
-	public FileDistributer(Socket connection, int no, int numChunks) {
+	public FileDistributer(Socket connection, int no, int numChunks, int numPeers) {
 		this.connection = connection;
 		this.clientNum = no;
 		this.numChunks = numChunks;
+		this.numPeers = numPeers;
 	}
 
 	public void run() {
@@ -33,9 +36,11 @@ public class FileDistributer extends Thread {
 			try {
 				while (true) {
 					// Tell the client how many chunks you are sending
-					sendMessage(1);
+					sendMessage(numChunks/numPeers);
 					// Send chunk to client
-					sendMessage(chunkFiles[clientNum % numChunks]);
+					for(int i = 0; i < numChunks/numPeers; i++){
+						sendMessage(chunkFiles[Server.incNumChunksSent()]);
+					}
 
 					message = (String) in.readObject();
 

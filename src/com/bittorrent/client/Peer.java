@@ -1,10 +1,7 @@
 package com.bittorrent.client;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -13,7 +10,6 @@ import java.net.ConnectException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
 import java.util.Scanner;
 
 import com.bittorrent.util.FileChunk;
@@ -30,15 +26,17 @@ public class Peer {
 
 	private Object MESSAGE; // capitalized message read from the server
 
-	private ArrayList<FileChunk> chunksIHave;
-	private File chunksIHaveFile = new File("client\\clientChunks.txt");
+	private FileChunk[] chunksIHave = null;
+	private File chunksIHaveFile;
 	private long numChunks = -1L;
 
 	public Peer(int fileOwnerPort, int listenPort, int neighborPort) {
 		this.fileOwnerPort = fileOwnerPort;
 		this.uploadPort = listenPort;
 		this.downloadPort = neighborPort;
+		chunksIHaveFile = new File("client\\"+uploadPort+"clientChunks.txt");
 	}
+	
 
 	private void connectToFileOwner() {
 		try {
@@ -52,9 +50,8 @@ public class Peer {
 			System.err.println("ERROR: unable to connect");
 		}
 	}
-	
-	private void disconnectFromFileOwner(){
-		
+
+	private void disconnectFromFileOwner() {
 		try {
 			out.flush();
 			out.close();
@@ -63,14 +60,16 @@ public class Peer {
 		} catch (IOException e) {
 			System.err.println("ERROR: disconnected from fileOwner");
 		}
-		
+
 	}
 
 	private void writeChunksIHaveToFile() throws IOException {
 		FileWriter fw = new FileWriter(chunksIHaveFile);
 		for (FileChunk fc : chunksIHave) {
-			fw.write(fc.getFileName() + " " + fc.getNum() + " "
-					+ fc.getTotalNum() + "\n");
+			if (fc != null) {
+				fw.write(fc.getFileName() + " " + fc.getNum() + " "
+						+ fc.getTotalNum() + "\n");
+			}
 		}
 		fw.close();
 
@@ -85,14 +84,16 @@ public class Peer {
 			MESSAGE = in.readObject();
 			System.out.println("Number of chunks being sent: " + MESSAGE);
 
-			chunksIHave = new ArrayList<FileChunk>();
-
 			for (int i = 0; i < (Integer) MESSAGE; i++) {
 				File f = (File) in.readObject();
 				System.out.println("Chunk received: " + f);
 				ObjectInputStream ois = new ObjectInputStream(
 						new FileInputStream(f));
-				chunksIHave.add((FileChunk) ois.readObject());
+				FileChunk fc = (FileChunk) ois.readObject();
+				if (chunksIHave == null) {
+					chunksIHave = new FileChunk[(int) fc.getTotalNum()];
+				}
+				chunksIHave[(int) fc.getNum()-1] = fc;
 			}
 
 			Util.writeFileChunksToFiles("client\\splits", chunksIHave);
@@ -100,14 +101,38 @@ public class Peer {
 			writeChunksIHaveToFile();
 
 			sendMessage("true");
-			
+
 			disconnectFromFileOwner();
+			
+			System.out.println("Listen for connection (1) or connect to neighbor(2)?");
+			Scanner input = new Scanner(System.in);
+			int choice = input.nextInt();
+			
+			PeerUploader uploader;
+			PeerDownloader download;
+			
+			switch(choice){
+			case 1:
+				// Open connection to upload this peer's chunks
+				uploader = new PeerUploader(uploadPort);
+				uploader.run();
 
-			// Connect to peer for upload
-			new PeerUploader(uploadPort).run();
-
-			// Connect to peer for download
-			new PeerDownloader(downloadPort).run();
+				// Connect to peer for download
+				download = new PeerDownloader(downloadPort);
+				download.run();
+				break;
+			case 2:
+				download = new PeerDownloader(downloadPort);
+				download.run();
+				
+				uploader = new PeerUploader(uploadPort);
+				uploader.run();
+				break;
+				
+			default:
+				
+			}
+			
 
 		} catch (ConnectException e) {
 			System.err
@@ -130,14 +155,124 @@ public class Peer {
 		}
 	}
 
-	// send a message to the output stream
 	void sendMessage(String msg) {
 		try {
-			// stream write the message
 			out.writeObject(msg);
 			out.flush();
 		} catch (IOException ioException) {
 			ioException.printStackTrace();
+		}
+	}
+
+	public class PeerDownloader extends Thread {
+		ObjectInputStream in;
+		ObjectOutputStream out;
+		private Socket connection;
+
+		public PeerDownloader(int downloadPort) {
+			try {
+				connection = new Socket("localhost", downloadPort);
+				in = new ObjectInputStream(connection.getInputStream());
+				out = new ObjectOutputStream(connection.getOutputStream());
+			} catch (IOException e) {
+				System.err.println("Failed to connect to peer for download");
+			}
+			System.out.println("Connected to " + downloadPort);
+		}
+		
+		void sendMessage(Object msg) {
+			try {
+				out.writeObject(msg);
+				out.flush();
+			} catch (IOException ioException) {
+				ioException.printStackTrace();
+			}
+		}
+
+		public void run() {
+			try {
+				
+				while(chunksIHave.length != numChunks){
+					// request for a file chunk you don't have
+					
+					// get it or get no
+					
+					// ask again till have all
+					break;
+				}
+				
+				
+				// reconstruct file
+				
+				
+			} 
+			finally {
+				try {
+					in.close();
+					out.close();
+					connection.close();
+					System.out.println("Download socket gracefully closed");
+				} catch (IOException e) {
+					System.out.println("Peer failed to close download socket");
+				}
+			}
+		}
+	}
+
+	public class PeerUploader extends Thread {
+		ObjectInputStream in;
+		ObjectOutputStream out;
+		private ServerSocket uploadingSocket;
+		private Socket connection;
+		
+		public PeerUploader(int uploadPort) throws IOException {
+			uploadingSocket = new ServerSocket(uploadPort);
+		}
+		
+		void sendMessage(Object msg) {
+			try {
+				out.writeObject(msg);
+				out.flush();
+			} catch (IOException ioException) {
+				ioException.printStackTrace();
+			}
+		}
+
+		public void run() {
+			try {
+				System.out.println("Listening for connections on " + uploadPort);
+				connection = uploadingSocket.accept();
+				in = new ObjectInputStream(connection.getInputStream());
+				out = new ObjectOutputStream(connection.getOutputStream());
+				
+				
+				// listen for chunk request, send chunk or say don't have it, till signal they are done
+				
+				while(true){
+					String request = (String) in.readObject();
+					if(request.equals("done")){
+						break;
+					}
+					else{
+						sendMessage(chunksIHave[Integer.parseInt(request)]);
+					}
+				}
+			
+				
+				
+				
+			} catch (IOException | ClassNotFoundException e) {
+				e.printStackTrace();
+			} finally {
+				try {
+					connection.close();
+					in.close();
+					out.close();
+					uploadingSocket.close();
+				} catch (IOException e) {
+					System.out.println("Peer failed to close upload socket");
+				}
+			}
 		}
 	}
 
@@ -173,33 +308,6 @@ public class Peer {
 		Peer client = new Peer(fileOwnerPort, listenPort, neighborPort);
 
 		client.run();
-	}
-
-	public class PeerDownloader extends Thread {
-		ObjectInputStream in;
-		private Socket downloadingSocket;
-		
-		
-		public PeerDownloader(int downloadPort) throws UnknownHostException, IOException{
-			downloadingSocket = new Socket("localhost", downloadPort);
-		}
-		
-		public void run() {
-
-		}
-	}
-
-	public class PeerUploader extends Thread {
-		ObjectOutputStream out;
-		private ServerSocket uploadingSocket;
-		
-		public PeerUploader(int uploadPort) throws IOException{
-			uploadingSocket = new ServerSocket(uploadPort);
-		}
-		
-		public void run() {
-
-		}
 	}
 
 }
