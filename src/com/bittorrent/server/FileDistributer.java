@@ -36,9 +36,17 @@ public class FileDistributer extends Thread {
 			try {
 				while (true) {
 					// Tell the client how many chunks you are sending
-					sendMessage(numChunks/numPeers);
+					int numChunksPerPeer = (int)Math.ceil((double)numChunks/(double)numPeers);
+					
+					// Make sure last peer doesn't get any overflow
+					if(Server.getNumChunksSent() + numChunksPerPeer > numChunks){
+						numChunksPerPeer -= Server.getNumChunksSent() + numChunksPerPeer - numChunks;
+					}
+					
+					sendMessage(numChunksPerPeer);
+					
 					// Send chunk to client
-					for(int i = 0; i < numChunks/numPeers; i++){
+					for(int i = 0; i < numChunksPerPeer; i++){
 						sendMessage(chunkFiles[Server.incNumChunksSent()]);
 					}
 

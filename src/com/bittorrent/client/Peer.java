@@ -26,9 +26,7 @@ public class Peer {
 	private int fileOwnerPort = -1;
 	private int uploadPort = -1;
 	private int downloadPort = -1;
-
-	private Object MESSAGE; // capitalized message read from the server
-
+	
 	private FileChunk[] chunksIHave = null;
 	private File chunksIHaveFile;
 	private long numChunks = -1L;
@@ -84,17 +82,17 @@ public class Peer {
 			connectToFileOwner();
 			
 			// Read the number of files being sent to us
-			MESSAGE = in.readObject();
-			System.out.println("Number of chunks being sent: " + MESSAGE);
+			Object request = in.readObject();
+			System.out.println("Number of chunks being sent: " + request);
 
-			for (int i = 0; i < (Integer) MESSAGE; i++) {
+			for (int i = 0; i < (Integer) request; i++) {
 				File f = (File) in.readObject();
 				System.out.println("Chunk received: " + f);
 				ObjectInputStream ois = new ObjectInputStream(new FileInputStream(f));
 				FileChunk fc = (FileChunk) ois.readObject();
 				if (chunksIHave == null) {
-					chunksIHave = new FileChunk[(int) fc.getTotalNum()];
 					numChunks = fc.getTotalNum();
+					chunksIHave = new FileChunk[(int) numChunks];
 				}
 				chunksIHave[(int) fc.getNum() - 1] = fc;
 			}
@@ -248,7 +246,6 @@ public class Peer {
 				System.out.println(chunksIHave.length);
 
 				sendMessage(new Integer(-1));
-				// TODO reconstruct file
 				
 				Util.rebuildFileFromFileChunks(chunksIHave, "Rebuild" + uploadPort + chunksIHave[0].getFileName());
 

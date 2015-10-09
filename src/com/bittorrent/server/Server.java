@@ -24,6 +24,10 @@ public class Server {
 	static synchronized int incNumChunksSent(){
 		return numChunksSent++;
 	}
+	
+	static synchronized int getNumChunksSent(){
+		return numChunksSent;
+	}
 
 	public static void main(String[] args) throws Exception {
 		System.out.println("The FileOwner is running.");
@@ -41,6 +45,8 @@ public class Server {
 			input.close();
 			System.out.println("File Selected: " + inputFile.getAbsolutePath());
 		}
+		
+		Util.deleteFolder(new File(ROOT_SPLIT_DIR));
 		
 		// Split the file into fileChunk objects and write them to the splits directory
 		numChunks = Util.splitFile(inputFile, ROOT_SPLIT_DIR);
