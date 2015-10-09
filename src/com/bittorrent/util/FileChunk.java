@@ -85,6 +85,15 @@ public class FileChunk implements Serializable, Comparable {
 			return false;
 		return true;
 	}
+	
+	@Override
+	public String toString(){
+		StringBuilder sb = new StringBuilder();
+		
+		sb.append(fileName + " " + num + "/" + totalNum);
+		
+		return sb.toString();
+	}
 
 	@Override
 	public int compareTo(Object arg0) {

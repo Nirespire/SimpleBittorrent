@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class Util {
@@ -83,6 +84,10 @@ public class Util {
 			fos.close();
 		}
 	} 
+	
+	public static File rebuildFileFromFileChunks(FileChunk[] chunks, String newFileName) throws IOException, ChordException{
+		return rebuildFileFromFileChunks(new ArrayList<FileChunk>(Arrays.asList(chunks)), newFileName);
+	}
 	
 	// Provided an ArrayList of FileChunk objects, reconstructs the original file.
 	// If all parts are not provided, 

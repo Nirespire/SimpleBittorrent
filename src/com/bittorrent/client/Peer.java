@@ -10,8 +10,11 @@ import java.net.ConnectException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.Random;
 import java.util.Scanner;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
+import com.bittorrent.util.ChordException;
 import com.bittorrent.util.FileChunk;
 import com.bittorrent.util.Util;
 
@@ -29,14 +32,14 @@ public class Peer {
 	private FileChunk[] chunksIHave = null;
 	private File chunksIHaveFile;
 	private long numChunks = -1L;
+	private ConcurrentLinkedQueue<Integer> chunkRequests = new ConcurrentLinkedQueue<Integer>();
 
 	public Peer(int fileOwnerPort, int listenPort, int neighborPort) {
 		this.fileOwnerPort = fileOwnerPort;
 		this.uploadPort = listenPort;
 		this.downloadPort = neighborPort;
-		chunksIHaveFile = new File("client\\"+uploadPort+"clientChunks.txt");
+		chunksIHaveFile = new File("client\\" + uploadPort + "clientChunks.txt");
 	}
-	
 
 	private void connectToFileOwner() {
 		try {
@@ -79,7 +82,7 @@ public class Peer {
 		try {
 
 			connectToFileOwner();
-
+			
 			// Read the number of files being sent to us
 			MESSAGE = in.readObject();
 			System.out.println("Number of chunks being sent: " + MESSAGE);
@@ -87,13 +90,13 @@ public class Peer {
 			for (int i = 0; i < (Integer) MESSAGE; i++) {
 				File f = (File) in.readObject();
 				System.out.println("Chunk received: " + f);
-				ObjectInputStream ois = new ObjectInputStream(
-						new FileInputStream(f));
+				ObjectInputStream ois = new ObjectInputStream(new FileInputStream(f));
 				FileChunk fc = (FileChunk) ois.readObject();
 				if (chunksIHave == null) {
 					chunksIHave = new FileChunk[(int) fc.getTotalNum()];
+					numChunks = fc.getTotalNum();
 				}
-				chunksIHave[(int) fc.getNum()-1] = fc;
+				chunksIHave[(int) fc.getNum() - 1] = fc;
 			}
 
 			Util.writeFileChunksToFiles("client\\splits", chunksIHave);
@@ -104,35 +107,17 @@ public class Peer {
 
 			disconnectFromFileOwner();
 			
-			System.out.println("Listen for connection (1) or connect to neighbor(2)?");
-			Scanner input = new Scanner(System.in);
-			int choice = input.nextInt();
-			
-			PeerUploader uploader;
-			PeerDownloader download;
-			
-			switch(choice){
-			case 1:
-				// Open connection to upload this peer's chunks
-				uploader = new PeerUploader(uploadPort);
-				uploader.run();
+			// Open connection to upload this peer's chunks
+			PeerUploader uploader = new PeerUploader(uploadPort);
+			uploader.start();
 
-				// Connect to peer for download
-				download = new PeerDownloader(downloadPort);
-				download.run();
-				break;
-			case 2:
-				download = new PeerDownloader(downloadPort);
-				download.run();
-				
-				uploader = new PeerUploader(uploadPort);
-				uploader.run();
-				break;
-				
-			default:
-				
-			}
+//			System.out.println("Press any key to connect to download neighbor");
+//			Util.pressAnyKeyToContinue();
 			
+			// Connect to peer for download
+			PeerDownloader download = new PeerDownloader(downloadPort);
+			download.start();
+
 
 		} catch (ConnectException e) {
 			System.err
@@ -155,6 +140,7 @@ public class Peer {
 		}
 	}
 
+	// Peer function
 	void sendMessage(String msg) {
 		try {
 			out.writeObject(msg);
@@ -162,6 +148,46 @@ public class Peer {
 		} catch (IOException ioException) {
 			ioException.printStackTrace();
 		}
+	}
+
+	synchronized int getChunkNumINeed() {
+		Random r = new Random();
+
+		FileChunk f = null;
+		int i = -1;
+
+		do {
+			i = r.nextInt(chunksIHave.length);
+			f = chunksIHave[i];
+		} while (f != null);
+
+		return i + 1;
+	}
+
+	synchronized int countNumChunksIHave() {
+		int i = 0;
+		for (FileChunk f : chunksIHave) {
+			if (f != null) {
+				i++;
+			}
+		}
+		return i;
+	}
+	
+	synchronized void addToChunksIHave(FileChunk f, int i){
+		chunksIHave[i] = f;
+	}
+	
+	void printChunksIHave(){
+		for(FileChunk f : chunksIHave){
+			if(f == null){
+				System.out.print("X");
+			}
+			else{
+				System.out.print(f.getNum());
+			}
+		}
+		System.out.println();
 	}
 
 	public class PeerDownloader extends Thread {
@@ -174,13 +200,15 @@ public class Peer {
 				connection = new Socket("localhost", downloadPort);
 				in = new ObjectInputStream(connection.getInputStream());
 				out = new ObjectOutputStream(connection.getOutputStream());
+				out.flush();
 			} catch (IOException e) {
 				System.err.println("Failed to connect to peer for download");
 			}
 			System.out.println("Connected to " + downloadPort);
 		}
-		
+
 		void sendMessage(Object msg) {
+			System.out.println("PeerDownloader send: " + msg);
 			try {
 				out.writeObject(msg);
 				out.flush();
@@ -190,23 +218,47 @@ public class Peer {
 		}
 
 		public void run() {
+			System.out.println("PeerDownloader.run()");
 			try {
-				
-				while(chunksIHave.length != numChunks){
+
+				while (countNumChunksIHave() != numChunks) {
+					
+					System.out.println("I have " + countNumChunksIHave() + " chunks");
+
 					// request for a file chunk you don't have
+					chunkRequests.add(getChunkNumINeed());
 					
-					// get it or get no
-					
-					// ask again till have all
-					break;
+					int requestNum = chunkRequests.remove();
+					System.out.println("Requesting chunk " + requestNum + " from neighbor");
+					sendMessage(new Integer(requestNum));
+
+					// get it or get null if neighbor doesn't have it
+					FileChunk response = (FileChunk) in.readObject();
+
+					if (response != null) {
+						System.out.println("Received chunk " + response + " from neighbor");
+						addToChunksIHave(response, (int)response.getNum()-1);
+						printChunksIHave();
+						writeChunksIHaveToFile();
+					}
+
 				}
 				
+				System.out.println("Got all file chunks");
+				System.out.println(chunksIHave.length);
+
+				sendMessage(new Integer(-1));
+				// TODO reconstruct file
 				
-				// reconstruct file
-				
-				
-			} 
-			finally {
+				Util.rebuildFileFromFileChunks(chunksIHave, "Rebuild" + uploadPort + chunksIHave[0].getFileName());
+
+			} catch (ClassNotFoundException e) {
+				e.printStackTrace();
+			} catch(IOException e){
+				e.printStackTrace();
+			} catch (ChordException e) {
+				e.printStackTrace();
+			} finally {
 				try {
 					in.close();
 					out.close();
@@ -224,12 +276,13 @@ public class Peer {
 		ObjectOutputStream out;
 		private ServerSocket uploadingSocket;
 		private Socket connection;
-		
+
 		public PeerUploader(int uploadPort) throws IOException {
 			uploadingSocket = new ServerSocket(uploadPort);
 		}
-		
+
 		void sendMessage(Object msg) {
+			System.out.println("PeerUploader send: " + msg);
 			try {
 				out.writeObject(msg);
 				out.flush();
@@ -239,28 +292,31 @@ public class Peer {
 		}
 
 		public void run() {
+			System.out.println("PeerUploader.run()");
 			try {
 				System.out.println("Listening for connections on " + uploadPort);
 				connection = uploadingSocket.accept();
-				in = new ObjectInputStream(connection.getInputStream());
 				out = new ObjectOutputStream(connection.getOutputStream());
-				
-				
-				// listen for chunk request, send chunk or say don't have it, till signal they are done
-				
-				while(true){
-					String request = (String) in.readObject();
-					if(request.equals("done")){
+				out.flush();
+				in = new ObjectInputStream(connection.getInputStream());
+			
+				// listen for chunk request, send chunk or say don't have it,
+				// till signal they are done
+
+				while (true) {
+					Integer request = (Integer) in.readObject();
+					System.out.println("Upload neighbor is requesting chunk " + request);
+					
+					if (request.equals(new Integer(-1))) {
+						System.out.println("Upload neighbor has all their chunks");
 						break;
-					}
-					else{
-						sendMessage(chunksIHave[Integer.parseInt(request)]);
+					} else {
+						chunkRequests.add(request);
+						System.out.println("Sending chunk " + request);
+						sendMessage(chunksIHave[request - 1]);
 					}
 				}
-			
-				
-				
-				
+
 			} catch (IOException | ClassNotFoundException e) {
 				e.printStackTrace();
 			} finally {
