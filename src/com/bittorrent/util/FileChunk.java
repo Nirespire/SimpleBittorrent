@@ -1,34 +1,22 @@
 package com.bittorrent.util;
 
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
 
 
-public class FileChunk implements Serializable, Comparable {
+public class FileChunk implements Serializable {
 	
-	private static final long serialVersionUID = 1L;
-	private final long num;
-	private final long totalNum;
-	private final byte[] bytes;
-	private final String fileName;
+	private static final long serialVersionUID = 1L; // For HashCode use
+	private final long num; // chunk number
+	private final long totalNum; // total number of chunks belonging to the original file
+	private final byte[] bytes; // byte information
+	private final String fileName; // file name of the original file
 	
 	public FileChunk(int num, long totalNum, byte[] bytes, String fileName){
 		this.num = num;
 		this.totalNum = totalNum;
 		this.bytes = bytes;
 		this.fileName = fileName;
-	}
-	
-	public File toFile() throws IOException{
-		File output = new File("img\\splits\\" + fileName + "." + num + "." + totalNum);
-		BufferedOutputStream bw = new BufferedOutputStream(new FileOutputStream(output));
-		bw.write(bytes);
-		bw.close();
-		return output;
 	}
 	
 	public String getChunkFilename(){
@@ -89,16 +77,8 @@ public class FileChunk implements Serializable, Comparable {
 	@Override
 	public String toString(){
 		StringBuilder sb = new StringBuilder();
-		
 		sb.append(fileName + " " + num + "/" + totalNum);
-		
 		return sb.toString();
 	}
 
-	@Override
-	public int compareTo(Object arg0) {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-	
 }

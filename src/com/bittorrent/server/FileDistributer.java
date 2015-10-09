@@ -6,16 +6,17 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 
-public class FileDistributer extends Thread {
-	private String message; // message received from the client
+import com.bittorrent.util.ChordException;
 
+public class FileDistributer extends Thread {
+    
 	private Socket connection;
-	private ObjectInputStream in; // stream read from the socket
-	private ObjectOutputStream out; // stream write to the socket
+	private ObjectInputStream in;
+	private ObjectOutputStream out;
 	private int clientNum; // The index number of the client (start with 0)
 	private int numChunks; // The number of chunks the file was split into
-	private int numPeers;
-	private String rootSplitDir;
+	private int numPeers; // Total number of peers there are in the system
+	private String rootSplitDir; // What directory to look in for the file chunks
 	
 
 	public FileDistributer(Socket connection, int no, int numChunks, int numPeers, String rootSplitDir) {
@@ -33,11 +34,14 @@ public class FileDistributer extends Thread {
 			out.flush();
 			in = new ObjectInputStream(connection.getInputStream());
 
+			// Get references to all the split files created by the FileOwner
 			File[] chunkFiles = new File(rootSplitDir).listFiles();
 
 			try {
 				while (true) {
-					// Tell the client how many chunks you are sending
+					// Figure out how many chunks each client should get
+				    // Round up numChunks/numPeers and make sure the last Peer gets the leftovers
+				    // if numChunks % numPeers % != 0
 					int numChunksPerPeer = (int)Math.ceil((double)numChunks/(double)numPeers);
 					
 					// Make sure last peer doesn't get any overflow
@@ -45,24 +49,28 @@ public class FileDistributer extends Thread {
 						numChunksPerPeer -= Server.getNumChunksSent() + numChunksPerPeer - numChunks;
 					}
 					
+					// Tell the client how many chunks you are sending
 					sendMessage(numChunksPerPeer);
 					
-					// Send chunk to client
+					// Send chunks to client
 					for(int i = 0; i < numChunksPerPeer; i++){
 						sendMessage(chunkFiles[Server.incNumChunksSent()]);
 					}
 
-					message = (String) in.readObject();
-
-					// Make sure client got chunks fine, then disconnect
-					if (message.equals("true")) {
+	                // Make sure client got chunks fine, then disconnect
+					String response = (String) in.readObject();
+					if (response.equals("true")) {
 						break;
 					}
-
+					else{
+					    throw new ChordException("FileDistributer: Peer is not satisfied with chunks it received");
+					}
 				}
-			} catch (ClassNotFoundException classnot) {
+			} catch (ClassNotFoundException e) {
 				System.err.println("Data received in unknown format");
-			}
+			} catch (ChordException e) {
+                e.printStackTrace();
+            }
 
 		} catch (IOException ioException) {
 			System.out.println("Disconnect with Client " + clientNum);
