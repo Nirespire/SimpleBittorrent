@@ -15,7 +15,7 @@ public class UtilTest {
 	@Test
 	public void testGetFileChunks() throws IOException, ChordException{
 		RandomAccessFile f = new RandomAccessFile("img\\Lenna.png", "r");
-		ArrayList<FileChunk> output = Util.getFileChunks(f, "Lenna.png");
+		ArrayList<FileChunk> output = Util.getFileChunks(f, "Lenna.png", 1024*100);
 		
 		Assert.assertNotNull(output);
 	}
@@ -23,29 +23,29 @@ public class UtilTest {
 	@Test
 	public void testWriteFileChunksToFiles() throws IOException, ChordException{
 		RandomAccessFile f = new RandomAccessFile("img\\Lenna.png", "r");
-		ArrayList<FileChunk> output = Util.getFileChunks(f, "Lenna.png");
+		ArrayList<FileChunk> output = Util.getFileChunks(f, "Lenna.png", 1024*100);
 		
 		Assert.assertNotNull(output);
 		
-		Util.writeFileChunksToFiles("img\\splits", output);
+		Util.writeFileChunksToFiles("img\\splits", output.toArray(new FileChunk[output.size()]));
 	}
 	
 	@Test
 	public void testRebuildFileFromFileChunks() throws IOException, ChordException{
 		RandomAccessFile f = new RandomAccessFile("img\\Lenna.png", "r");
-		ArrayList<FileChunk> output = Util.getFileChunks(f, "Lenna.png");
+		ArrayList<FileChunk> output = Util.getFileChunks(f, "Lenna.png", 1024*100);
 		
 		Assert.assertNotNull(output);
 		
-		Util.writeFileChunksToFiles("img\\splits", output);
+		Util.writeFileChunksToFiles("img\\splits", output.toArray(new FileChunk[output.size()]));
 		
-		Util.rebuildFileFromFileChunks(output, "LennaRebuild.png");
+		Util.rebuildFileFromFileChunks(output, "LennaRebuild.png", "img");
 	}
 	
 	@Test
 	public void testSplitFile(){
 		File f = new File("img\\Lenna.png");
-		Util.splitFile(f, "img\\splits");
+		Util.splitFile(f, "img\\splits", 1024*100);
 	}
 
 }

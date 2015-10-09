@@ -247,7 +247,7 @@ public class Peer {
 
 				sendMessage(new Integer(-1));
 				
-				Util.rebuildFileFromFileChunks(chunksIHave, "Rebuild" + uploadPort + chunksIHave[0].getFileName());
+				Util.rebuildFileFromFileChunks(chunksIHave, "Rebuild" + uploadPort + chunksIHave[0].getFileName(), "img");
 
 			} catch (ClassNotFoundException e) {
 				e.printStackTrace();

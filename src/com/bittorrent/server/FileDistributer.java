@@ -15,13 +15,15 @@ public class FileDistributer extends Thread {
 	private int clientNum; // The index number of the client (start with 0)
 	private int numChunks; // The number of chunks the file was split into
 	private int numPeers;
+	private String rootSplitDir;
 	
 
-	public FileDistributer(Socket connection, int no, int numChunks, int numPeers) {
+	public FileDistributer(Socket connection, int no, int numChunks, int numPeers, String rootSplitDir) {
 		this.connection = connection;
 		this.clientNum = no;
 		this.numChunks = numChunks;
 		this.numPeers = numPeers;
+		this.rootSplitDir = rootSplitDir;
 	}
 
 	public void run() {
@@ -31,7 +33,7 @@ public class FileDistributer extends Thread {
 			out.flush();
 			in = new ObjectInputStream(connection.getInputStream());
 
-			File[] chunkFiles = new File(Server.ROOT_SPLIT_DIR).listFiles();
+			File[] chunkFiles = new File(rootSplitDir).listFiles();
 
 			try {
 				while (true) {
