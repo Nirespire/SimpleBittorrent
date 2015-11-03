@@ -11,7 +11,7 @@ import com.bittorrent.util.Util;
 public class Server {
 
 	private static final int S_PORT = 8888;
-	private static final String ROOT_SPLIT_DIR = "img\\splits";
+	private static final String ROOT_SPLIT_DIR = "server\\splits";
 	private static final int CHUNK_SIZE = 100 * 1024;
 	private static final int NUM_PEERS = 5;
 	
