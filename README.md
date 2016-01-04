@@ -1,4 +1,4 @@
-# ChordBittorrent
+# Simple Bittorrent
 Simple Peer-to-Peer file sharing demo application.
 
 ## How to Run
